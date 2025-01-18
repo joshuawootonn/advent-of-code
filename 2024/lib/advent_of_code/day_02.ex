@@ -1,62 +1,80 @@
 defmodule AdventOfCode.Day02 do
-  defp is_safe(chunk, tolerance \\ 0) do
+  defp is_safe(line, tolerance) when tolerance > -1 do
     result =
-      String.split(chunk)
+      String.split(line)
       |> Enum.chunk_every(2, 1, :discard)
-      |> Enum.reduce(%{direction: "unknown", direction_fault: 0, diff_fault: 0}, fn
-        _curr, acc when acc.direction_fault > tolerance ->
-          acc
-
-        _curr, acc when acc.diff_fault > tolerance ->
+      |> Enum.with_index()
+      |> Enum.reduce(%{direction: "unknown"}, fn
+        _curr, acc when acc.fault != nil ->
           acc
 
         curr, acc ->
-          head = List.first(curr) |> String.to_integer()
-          tail = List.last(curr) |> String.to_integer()
+          index = elem(curr, 1)
+          head = List.first(elem(curr, 0)) |> String.to_integer()
+          tail = List.last(elem(curr, 0)) |> String.to_integer()
           nextDirection = if head - tail > 0, do: "asc", else: "desc"
           nextDiff = abs(head - tail)
 
           direction_fault =
             if acc.direction == "unknown",
-              do: 0,
+              do: false,
               else:
                 if(acc.direction == nextDirection,
-                  do: acc.direction_fault,
-                  else: acc.direction_fault + 1
+                  do: false,
+                  else: true
                 )
 
           diff_fault =
-            if nextDiff > 0 and nextDiff < 4, do: acc.diff_fault, else: acc.diff_fault + 1
+            if nextDiff > 0 and nextDiff < 4, do: false, else: true
 
-          # IO.inspect(%{
-          #   head: head,
-          #   tail: tail,
-          #   direction_fault: direction_fault,
-          #   diff_fault: diff_fault
-          # })
-
-          %{
-            direction: nextDirection,
-            direction_fault: direction_fault,
-            diff_fault: diff_fault
-          }
+          if direction_fault == true or diff_fault == true do
+            %{
+              direction: nextDirection,
+              fault: [direction_fault: direction_fault, diff_fault: diff_fault, index: index]
+            }
+          else
+            %{
+              direction: nextDirection
+            }
+          end
       end)
 
-    # IO.inspect(%{
-    #   dir: result.direction_fault,
-    #   diff: result.diff_fault,
-    #   tolerance: tolerance
-    # })
+    if(Map.get(result, :fault) != nil) do
+      nextTolerance = tolerance - 1
 
-    if result.direction_fault <= tolerance and result.diff_fault <= tolerance, do: 1, else: 0
+      Enum.map(
+        0..length(String.split(line)),
+        fn index -> String.split(line) |> List.delete_at(index) |> Enum.join(" ") end
+      )
+      |> Enum.any?(&is_safe(&1, nextTolerance))
+    else
+      true
+    end
+  end
+
+  defp is_safe(_line, -1) do
+    false
   end
 
   def part1(args) do
-    chunks = String.trim(args) |> String.split("\n")
-
-    Enum.map(chunks, &is_safe(&1)) |> Enum.sum()
+    String.trim(args)
+    |> String.split("\n")
+    |> Enum.map(&is_safe(&1, 0))
+    |> Enum.map(fn
+      true -> 1
+      false -> 0
+    end)
+    |> Enum.sum()
   end
 
-  def part2(_args) do
+  def part2(args) do
+    String.trim(args)
+    |> String.split("\n")
+    |> Enum.map(&is_safe(&1, 1))
+    |> Enum.map(fn
+      true -> 1
+      false -> 0
+    end)
+    |> Enum.sum()
   end
 end
